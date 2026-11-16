@@ -1,0 +1,876 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>CallKaro Buildathon</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: maroon hero carrying the STT → LLM → TTS loop, then one spec + code row per service, in pipeline order. Colours are CallKaro's app tokens. */
+:root {
+  --bg: #fcf5ee;
+  --surface: #ffffff;
+  --soft: #fbede6;
+  --fg: #361118;
+  --muted: #885b60;
+  --border: #f2d7d5;
+  --primary: #ee6983;
+  --primary-ink: #2a0d13;
+  --link: #ba3f60;
+  --wine: #850d35;
+  --chip: #ffe6e6;
+  --chip-ink: #850d35;
+  --ok: #1f7a4d;
+  --warn: #a6460f;
+
+  /* always-dark surfaces (hero + code) */
+  --hero-0: #100c0c;
+  --hero-1: #361118;
+  --hero-2: #850d35;
+  --hero-fg: #f5f1ee;
+  --hero-muted: #d8c4c1;
+  --hero-line: rgba(245, 241, 238, .14);
+  --code-bg: #1b1615;
+  --code-bar: #241d1c;
+  --code-fg: #f5f1ee;
+  --code-dim: #a3928f;
+  --code-key: #ee6983;
+  --code-str: #f8bcbe;
+  --code-num: #f3c18a;
+  --code-fn: #ffd9cc;
+  --code-line: rgba(235, 226, 224, .1);
+
+  --sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --r: 10px;
+  --r-lg: 16px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #100c0c; --surface: #1b1615; --soft: #252020; --fg: #f5f1ee; --muted: #aa9f9b;
+    --border: rgba(235, 226, 224, .1); --primary: #ee6983; --primary-ink: #100c0c; --link: #f2a6aa;
+    --wine: #f8bcbe; --chip: #2e1f21; --chip-ink: #f8bcbe; --ok: #6fd3a0; --warn: #f3a66a;
+    --code-bg: #171211; --code-bar: #1f1918;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #100c0c; --surface: #1b1615; --soft: #252020; --fg: #f5f1ee; --muted: #aa9f9b;
+  --border: rgba(235, 226, 224, .1); --primary: #ee6983; --primary-ink: #100c0c; --link: #f2a6aa;
+  --wine: #f8bcbe; --chip: #2e1f21; --chip-ink: #f8bcbe; --ok: #6fd3a0; --warn: #f3a66a;
+  --code-bg: #171211; --code-bar: #1f1918;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg);
+  font-family: var(--sans); font-size: 15px; line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--hero-0); }
+a { color: var(--link); text-underline-offset: 3px; }
+code, kbd, pre { font-family: var(--mono); }
+:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; border-radius: 4px; }
+.wrap {
+  max-width: 1180px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+h1, h2, h3 { text-wrap: balance; margin: 0; letter-spacing: -0.02em; }
+p { margin: 0; }
+
+/* ---------- top bar ---------- */
+.topbar {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+  background: color-mix(in srgb, var(--hero-0) 92%, transparent);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--hero-line);
+  color: var(--hero-fg);
+}
+.topbar .wrap { display: flex; align-items: center; gap: 20px; padding-block: 10px; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 600; white-space: nowrap; color: var(--hero-fg); text-decoration: none; }
+.brand-mark { width: 28px; height: 28px; border-radius: 8px; background: var(--primary); display: grid; place-items: center; color: var(--primary-ink); }
+.brand small { font-weight: 500; color: var(--hero-muted); font-size: 13px; }
+.nav { display: flex; gap: 4px; overflow-x: auto; min-width: 0; margin-left: auto; scrollbar-width: none; }
+.nav::-webkit-scrollbar { display: none; }
+.nav a { color: var(--hero-muted); text-decoration: none; font-size: 13.5px; padding: 6px 10px; border-radius: 999px; white-space: nowrap; }
+.nav a:hover { color: var(--hero-fg); background: var(--hero-line); }
+
+/* ---------- hero ---------- */
+.hero {
+  color: var(--hero-fg);
+  background:
+    linear-gradient(115deg, transparent 0 38%, rgba(238,105,131,.10) 38% 46%, transparent 46% 58%, rgba(238,105,131,.07) 58% 63%, transparent 63%),
+    radial-gradient(120% 90% at 50% 0%, var(--hero-2) 0%, var(--hero-1) 45%, var(--hero-0) 85%);
+  border-bottom: 1px solid var(--hero-line);
+}
+.hero .wrap { padding-block: 56px 40px; display: grid; gap: 36px; }
+.eyebrow {
+  display: inline-flex; align-items: center; gap: 8px; width: fit-content;
+  font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--hero-fg); background: rgba(245,241,238,.08); border: 1px solid var(--hero-line);
+  padding: 5px 12px 5px 6px; border-radius: 999px;
+}
+.eyebrow b { background: var(--primary); color: var(--primary-ink); padding: 2px 8px; border-radius: 999px; letter-spacing: .06em; }
+.hero h1 { font-size: clamp(34px, 6vw, 60px); line-height: 1.04; font-weight: 600; max-width: 16ch; }
+.hero h1 em { font-style: normal; color: var(--primary); }
+.hero-lede { font-size: 17px; color: var(--hero-muted); max-width: 62ch; }
+.hero-top { display: grid; gap: 18px; }
+.cta-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; }
+.btn {
+  display: inline-flex; align-items: center; gap: 8px; font: 500 14px var(--sans);
+  padding: 10px 18px; border-radius: 999px; text-decoration: none; cursor: pointer; border: 0;
+}
+.btn-primary { background: var(--primary); color: var(--primary-ink); }
+.btn-primary:hover { filter: brightness(1.06); }
+.btn-ghost { background: rgba(245,241,238,.06); color: var(--hero-fg); border: 1px solid var(--hero-line); }
+.btn-ghost:hover { background: rgba(245,241,238,.12); }
+
+/* pipeline */
+.loop { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0; }
+.loop li { position: relative; display: flex; flex-direction: column; }
+.node {
+  display: flex; flex-direction: column; gap: 6px; height: 100%;
+  padding: 14px 14px 16px; border-radius: 14px; text-decoration: none; color: var(--hero-fg);
+  background: rgba(16,12,12,.45); border: 1px solid var(--hero-line);
+  transition: border-color .15s, background .15s;
+}
+a.node:hover { border-color: var(--primary); background: rgba(16,12,12,.65); }
+.node.svc { background: rgba(133,13,53,.38); }
+.node .k { font: 500 11px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--hero-muted); }
+.node .n { font-weight: 600; font-size: 16px; }
+.node .d { font: 12.5px var(--mono); color: var(--hero-muted); }
+.loop li + li { padding-left: 34px; }
+.loop li + li::before {
+  content: attr(data-flow); position: absolute; left: 0; top: 50%; transform: translateY(-50%);
+  width: 34px; text-align: center; font: 500 10px var(--mono); color: var(--primary); letter-spacing: .04em;
+  padding-bottom: 14px;
+}
+.loop li + li::after {
+  content: ""; position: absolute; left: 6px; right: calc(100% - 28px); top: 50%; height: 0;
+  border-top: 1.5px dashed var(--primary); opacity: .8;
+}
+.loop-note { font-size: 13px; color: var(--hero-muted); display: flex; flex-wrap: wrap; gap: 6px 18px; }
+.loop-note span::before { content: "↻ "; color: var(--primary); }
+
+/* ---------- key bar ---------- */
+.keybar { background: var(--surface); border-bottom: 1px solid var(--border); }
+.keybar .wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; padding-block: 16px; }
+.keybar label { font-weight: 600; font-size: 14px; }
+.keyfield { display: flex; align-items: center; gap: 8px; flex: 1 1 320px; min-width: 0; max-width: 520px; }
+.keyfield input {
+  flex: 1; min-width: 0; font: 14px var(--mono); padding: 9px 12px; border-radius: var(--r);
+  border: 1px solid var(--border); background: var(--bg); color: var(--fg);
+}
+.keyfield input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 25%, transparent); }
+.keybar .hint { font-size: 13px; color: var(--muted); flex: 1 1 260px; min-width: 0; }
+.keystate { font: 500 12px var(--mono); padding: 3px 9px; border-radius: 999px; background: var(--soft); color: var(--muted); white-space: nowrap; }
+.keystate.on { background: color-mix(in srgb, var(--ok) 14%, transparent); color: var(--ok); }
+
+/* ---------- sections ---------- */
+main { display: grid; gap: 0; }
+.section { padding-block: 56px; border-bottom: 1px solid var(--border); scroll-margin-top: 56px; }
+.section-head { display: grid; gap: 10px; margin-bottom: 28px; max-width: 760px; }
+.step { display: flex; align-items: center; gap: 10px; font: 500 12px var(--mono); color: var(--muted); letter-spacing: .06em; text-transform: uppercase; }
+.step i { font-style: normal; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: var(--primary); color: var(--primary-ink); font-weight: 600; letter-spacing: 0; }
+.section h2 { font-size: clamp(26px, 3.4vw, 34px); font-weight: 600; line-height: 1.12; }
+.section-head p { color: var(--muted); font-size: 16px; max-width: 65ch; }
+
+.svc-grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 28px; align-items: start; }
+.spec { display: grid; gap: 20px; min-width: 0; }
+.endpoint {
+  display: flex; align-items: center; gap: 10px; min-width: 0;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 8px 8px 8px 10px;
+}
+.verb { font: 600 11px var(--mono); padding: 3px 8px; border-radius: 6px; background: var(--chip); color: var(--chip-ink); white-space: nowrap; letter-spacing: .04em; }
+.endpoint code { flex: 1; min-width: 0; font-size: 13px; overflow-x: auto; white-space: nowrap; scrollbar-width: thin; }
+.copy-mini {
+  flex: none; font: 500 12px var(--sans); padding: 5px 10px; border-radius: 7px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--bg); color: var(--fg);
+}
+.copy-mini:hover { border-color: var(--primary); }
+.copy-mini.done { color: var(--ok); border-color: var(--ok); }
+
+dl.facts { margin: 0; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 0; border-top: 1px solid var(--border); }
+dl.facts dt, dl.facts dd { padding: 11px 0; border-bottom: 1px solid var(--border); margin: 0; }
+dl.facts dt { font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding-right: 18px; padding-top: 13px; }
+dl.facts dd { font-size: 14.5px; }
+dl.facts code, .inline-code { font-size: 12.5px; background: var(--soft); padding: 1px 6px; border-radius: 5px; overflow-wrap: anywhere; }
+
+.note {
+  font-size: 14px; padding: 12px 14px; border-radius: var(--r);
+  background: var(--soft); border: 1px solid var(--border); display: grid; gap: 6px;
+}
+.note strong { font-weight: 600; }
+.note pre { margin: 4px 0 0; font-size: 12.5px; overflow-x: auto; white-space: pre; background: var(--surface); border: 1px solid var(--border); padding: 8px 10px; border-radius: 8px; }
+
+.demo { display: grid; gap: 8px; }
+.demo-row { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 12px; align-items: baseline; font-size: 14.5px; }
+.demo-row span:first-child { font: 500 11px var(--mono); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.demo-row .out { font-family: var(--mono); font-size: 13.5px; }
+.deva { color: var(--wine); font-weight: 500; }
+
+.voices { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; }
+.voice {
+  display: grid; gap: 2px; text-align: left; cursor: pointer; padding: 10px 12px; border-radius: var(--r);
+  background: var(--surface); border: 1px solid var(--border); color: var(--fg); font: inherit;
+}
+.voice b { font: 600 14px var(--mono); }
+.voice small { font-size: 12px; color: var(--muted); }
+.voice:hover { border-color: var(--primary); }
+.voice[aria-pressed="true"] { border-color: var(--primary); background: var(--chip); box-shadow: inset 0 0 0 1px var(--primary); }
+.voice[aria-pressed="true"] b { color: var(--chip-ink); }
+
+/* ---------- code panel ---------- */
+.code { background: var(--code-bg); border-radius: var(--r-lg); border: 1px solid var(--code-line); overflow: hidden; min-width: 0; color: var(--code-fg); }
+.code-bar { display: flex; align-items: center; gap: 4px; padding: 8px 8px 0 10px; background: var(--code-bar); border-bottom: 1px solid var(--code-line); }
+.tabs { display: flex; gap: 2px; overflow-x: auto; min-width: 0; flex: 1; scrollbar-width: none; }
+.tab {
+  font: 500 12.5px var(--sans); color: var(--code-dim); background: none; border: 0; cursor: pointer;
+  padding: 8px 12px 10px; border-bottom: 2px solid transparent; white-space: nowrap;
+}
+.tab:hover { color: var(--code-fg); }
+.tab[aria-selected="true"] { color: var(--code-fg); border-bottom-color: var(--primary); }
+.copy-code {
+  flex: none; margin-bottom: 6px; font: 500 12px var(--sans); padding: 6px 12px; border-radius: 7px; cursor: pointer;
+  color: var(--code-fg); background: rgba(245,241,238,.06); border: 1px solid var(--code-line);
+}
+.copy-code:hover { border-color: var(--primary); }
+.copy-code.done { color: #6fd3a0; border-color: #6fd3a0; }
+.code pre { margin: 0; padding: 16px 18px 18px; overflow-x: auto; font-size: 12.8px; line-height: 1.65; tab-size: 4; max-height: 560px; }
+.code pre code { font-family: var(--mono); color: var(--code-fg); }
+.code-foot { padding: 8px 14px; font-size: 12px; color: var(--code-dim); border-top: 1px solid var(--code-line); }
+.code-foot code { color: var(--code-fn); }
+.token.comment, .token.prolog { color: var(--code-dim); font-style: italic; }
+.token.keyword, .token.boolean, .token.important, .token.builtin { color: var(--code-key); }
+.token.string, .token.template-string, .token.attr-value, .token.char { color: var(--code-str); }
+.token.number { color: var(--code-num); }
+.token.function, .token.class-name { color: var(--code-fn); }
+.token.property, .token.parameter, .token.variable { color: #f2a6aa; }
+.token.operator, .token.punctuation { color: #cdbdba; }
+.token.interpolation-punctuation { color: var(--code-key); }
+
+/* ---------- limits ---------- */
+.limits { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.limit { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 20px; display: grid; gap: 16px; align-content: start; }
+.limit-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.limit-head h3 { font-size: 16px; font-weight: 600; }
+.limit-head span { font: 12px var(--mono); color: var(--muted); }
+.meters { display: grid; gap: 12px; }
+.meter { display: grid; gap: 4px; }
+.meter-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.meter-top b { font-size: 26px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.meter-top span { font-size: 13px; color: var(--muted); text-align: right; }
+.meaning { font-size: 13.5px; color: var(--muted); border-top: 1px dashed var(--border); padding-top: 12px; }
+.meaning b { color: var(--fg); font-weight: 600; }
+
+.errors { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 16px; }
+.err { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 14px; align-items: baseline; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 16px 18px; }
+.err .codeno { font: 600 22px var(--mono); grid-row: span 2; }
+.err.e429 .codeno { color: var(--warn); }
+.err.e401 .codeno { color: var(--link); }
+.err strong { font-weight: 600; }
+.err p { color: var(--muted); font-size: 14px; }
+
+.tips { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 28px; }
+.tip { display: grid; gap: 6px; padding-top: 14px; border-top: 2px solid var(--primary); }
+.tip h3 { font-size: 15px; font-weight: 600; }
+.tip p { font-size: 14px; color: var(--muted); }
+
+/* ---------- health ---------- */
+.health { display: grid; gap: 10px; }
+.hrow {
+  display: grid; grid-template-columns: 150px minmax(0, 1fr) auto; gap: 14px; align-items: center;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 10px 10px 10px 16px;
+}
+.hrow .svcname { display: grid; line-height: 1.3; }
+.hrow .svcname b { font-weight: 600; font-size: 14.5px; }
+.hrow .svcname span { font: 12px var(--mono); color: var(--muted); }
+.hrow code { font-size: 13px; overflow-x: auto; white-space: nowrap; min-width: 0; scrollbar-width: thin; padding-block: 4px; }
+.health-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-top: 6px; font-size: 13.5px; color: var(--muted); }
+
+footer { padding-block: 32px 48px; color: var(--muted); font-size: 13px; }
+footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; }
+
+/* ---------- responsive ---------- */
+@media (max-width: 980px) {
+  .svc-grid { grid-template-columns: minmax(0, 1fr); }
+  .limits, .tips { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 860px) {
+  .loop { grid-template-columns: minmax(0, 1fr); }
+  .loop li + li { padding-left: 0; padding-top: 30px; }
+  .loop li + li::before { left: 50%; top: 0; transform: translateX(8px); width: auto; text-align: left; padding: 8px 0 0; }
+  .loop li + li::after { left: 50%; right: auto; top: 4px; height: 22px; border-top: 0; border-left: 1.5px dashed var(--primary); }
+}
+@media (max-width: 640px) {
+  .hero .wrap { padding-block: 36px 28px; }
+  .brand small { display: none; }
+  .errors { grid-template-columns: minmax(0, 1fr); }
+  .hrow { grid-template-columns: minmax(0, 1fr) auto; }
+  .hrow code { grid-column: 1 / -1; grid-row: 2; }
+  .section { padding-block: 40px; }
+  dl.facts { grid-template-columns: minmax(0, 1fr); }
+  dl.facts dt { border-bottom: 0; padding-bottom: 0; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
+html { scroll-behavior: smooth; }
+</style>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="#top">
+      <span class="brand-mark" aria-hidden="true">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.8a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/></svg>
+      </span>
+      CallKaro <small>Buildathon kit</small>
+    </a>
+    <nav class="nav" aria-label="Sections">
+      <a href="#stt">Speech to text</a>
+      <a href="#llm">LLM</a>
+      <a href="#tts">Text to speech</a>
+      <a href="#limits">Limits</a>
+      <a href="#health">Health</a>
+    </nav>
+  </div>
+</header>
+
+<section class="hero" id="top">
+  <div class="wrap">
+    <div class="hero-top">
+      <span class="eyebrow"><b>Buildathon</b> Developer kit</span>
+      <h1>Build a voice agent that speaks <em>Hinglish</em>.</h1>
+      <p class="hero-lede">Three APIs, one key: live speech-to-text, the <strong>arjuna-3.5</strong> LLM, and streaming text-to-speech in four Indian voices. Wire them in a loop and you have an agent that can hold a phone conversation.</p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="#stt">Start with speech to text</a>
+        <a class="btn btn-ghost" href="#limits">Check your limits</a>
+      </div>
+    </div>
+
+    <ol class="loop" aria-label="Voice agent loop">
+      <li><div class="node"><span class="k">Caller</span><span class="n">Speaks</span><span class="d">“Mera order kab aayega?”</span></div></li>
+      <li data-flow="PCM"><a class="node svc" href="#stt"><span class="k">STT · :8900</span><span class="n">ck-stt-live</span><span class="d">16 kHz in → text</span></a></li>
+      <li data-flow="text"><a class="node svc" href="#llm"><span class="k">LLM · :8815</span><span class="n">arjuna-3.5</span><span class="d">chat completions</span></a></li>
+      <li data-flow="text"><a class="node svc" href="#tts"><span class="k">TTS · :8080</span><span class="n">raju · saavi …</span><span class="d">text → 24 kHz out</span></a></li>
+      <li data-flow="PCM"><div class="node"><span class="k">Caller</span><span class="n">Hears reply</span><span class="d">then speaks again</span></div></li>
+    </ol>
+    <p class="loop-note"><span>STT closes a turn after ~0.7 s of silence</span><span>Send each finished turn to the LLM</span><span>Stream the reply to TTS</span></p>
+  </div>
+</section>
+
+<div class="keybar">
+  <div class="wrap">
+    <label for="api-key">Your API key</label>
+    <div class="keyfield">
+      <input id="api-key" type="password" placeholder="Paste the key from the organisers" autocomplete="off" spellcheck="false">
+      <span class="keystate" id="key-state">not set</span>
+    </div>
+    <p class="hint">Fills every snippet below. Code shows a masked key; Copy pastes the real one. Nothing is saved or sent anywhere.</p>
+  </div>
+</div>
+
+<main>
+  <!-- ================= STT ================= -->
+  <section class="section" id="stt">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="step"><i>1</i> Hear</div>
+        <h2>Speech to text</h2>
+        <p>Open a WebSocket, send one JSON config message, then stream raw audio at real-time pace. You get final text after each pause, followed by an <code class="inline-code">&lt;end&gt;</code> marker that tells you the caller finished their turn.</p>
+      </div>
+      <div class="svc-grid">
+        <div class="spec">
+          <div class="endpoint"><span class="verb">WS</span><code>ws://45.194.47.180:8900/transcribe-websocket</code><button class="copy-mini" data-copy="ws://45.194.47.180:8900/transcribe-websocket">Copy</button></div>
+          <dl class="facts">
+            <dt>Model</dt><dd><code>ck-stt-live</code></dd>
+            <dt>First msg</dt><dd><code>{"api_key", "model", "language_hints": ["en","hi"]}</code></dd>
+            <dt>Audio in</dt><dd>16 kHz · mono · 16-bit PCM, binary frames, sent in real time. A 20 ms chunk is 640 bytes.</dd>
+            <dt>You get</dt><dd><code>{"tokens":[{"text":"…","is_final":true}]}</code> after each ~0.7 s pause, then <code>&lt;end&gt;</code></dd>
+            <dt>Languages</dt><dd>Keep <code>["en","hi"]</code>. English, Hindi and Hinglish are detected per turn. Hints don't change the script.</dd>
+          </dl>
+          <div class="note demo">
+            <div class="demo-row"><span>Caller says</span><span>Mera order kab aayega? Tracking ID bhi bhejo.</span></div>
+            <div class="demo-row"><span>STT returns</span><span class="out"><span class="deva">मेरा</span> order <span class="deva">कब आएगा?</span> Tracking ID <span class="deva">भी भेजो।</span></span></div>
+            <div class="demo-row"><span></span><span style="font-size:12.5px;color:var(--muted)">Illustrative. Hindi comes back in Devanagari, English words stay in Latin script. Prompt your LLM for that mix.</span></div>
+          </div>
+          <div class="note">
+            <strong>Convert any audio file to the right format</strong>
+            <pre>ffmpeg -i input.mp3 -ar 16000 -ac 1 -f s16le call.raw</pre>
+          </div>
+        </div>
+        <div class="code" data-panel="stt"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= LLM ================= -->
+  <section class="section" id="llm">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="step"><i>2</i> Think</div>
+        <h2>arjuna-3.5 LLM</h2>
+        <p>A chat completions endpoint with the familiar <code class="inline-code">messages</code> format. It streams by default, which is what you want for voice: start speaking the first sentence while the rest is still being generated.</p>
+      </div>
+      <div class="svc-grid">
+        <div class="spec">
+          <div class="endpoint"><span class="verb">POST</span><code>http://45.194.47.180:8815/llm/v1/chat/completions</code><button class="copy-mini" data-copy="http://45.194.47.180:8815/llm/v1/chat/completions">Copy</button></div>
+          <dl class="facts">
+            <dt>Model</dt><dd><code>arjuna-3.5</code></dd>
+            <dt>Auth</dt><dd><code>Authorization: Bearer YOUR_KEY</code></dd>
+            <dt>Body</dt><dd><code>model</code>, <code>messages</code>, <code>max_tokens</code>, <code>stream</code></dd>
+            <dt>Streaming</dt><dd>On by default. Send <code>"stream": false</code> to get one JSON response.</dd>
+            <dt>Budget</dt><dd>10 requests/min per key, so make one call per caller turn.</dd>
+          </dl>
+          <div class="note">
+            <strong>Using an SDK?</strong>
+            <span>Point an OpenAI-style client at <code class="inline-code">http://45.194.47.180:8815/llm/v1</code> and pass <code class="inline-code">stream</code> explicitly. Since the server streams by default, leaving it out can confuse clients that expect a single JSON body.</span>
+          </div>
+        </div>
+        <div class="code" data-panel="llm"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= TTS ================= -->
+  <section class="section" id="tts">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="step"><i>3</i> Speak</div>
+        <h2>Text to speech</h2>
+        <p>Open a WebSocket with your key and voice in the URL, send text as JSON, and read back raw audio frames. Pick a voice below and the snippets switch to it.</p>
+      </div>
+      <div class="svc-grid">
+        <div class="spec">
+          <div class="endpoint"><span class="verb">WS</span><code id="tts-url">ws://45.194.47.180:8080/v1/audio/stream?api_key=YOUR_KEY&amp;voice=raju</code><button class="copy-mini" id="tts-url-copy">Copy</button></div>
+          <div class="voices" role="group" aria-label="Voice">
+            <button class="voice" data-voice="raju" aria-pressed="true"><b>raju</b><small>Male</small></button>
+            <button class="voice" data-voice="mahesh" aria-pressed="false"><b>mahesh</b><small>Male</small></button>
+            <button class="voice" data-voice="saavi" aria-pressed="false"><b>saavi</b><small>Female</small></button>
+            <button class="voice" data-voice="tarini" aria-pressed="false"><b>tarini</b><small>Female</small></button>
+          </div>
+          <dl class="facts">
+            <dt>Send</dt><dd><code>{"text":"…","context_id":"c1","flush":true}</code></dd>
+            <dt>Audio out</dt><dd>24 kHz · mono · 16-bit PCM, binary frames</dd>
+            <dt>Languages</dt><dd>English, Hindi and Hinglish, in all four voices</dd>
+            <dt>Budget</dt><dd>30 requests and 2,500 characters per minute</dd>
+          </dl>
+          <div class="note">
+            <strong>Mind the sample rates</strong>
+            <span>STT takes 16 kHz, TTS returns 24 kHz. Resample if you feed TTS output into STT or into a phone line.</span>
+          </div>
+        </div>
+        <div class="code" data-panel="tts"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= LIMITS ================= -->
+  <section class="section" id="limits">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="step">Per key</div>
+        <h2>Rate limits</h2>
+        <p>Every key gets the same budget. Plan your demo around it, especially the LLM, which is the tightest.</p>
+      </div>
+      <div class="limits">
+        <article class="limit">
+          <div class="limit-head"><h3>LLM</h3><span>arjuna-3.5</span></div>
+          <div class="meters">
+            <div class="meter"><div class="meter-top"><b>10</b><span>requests / min</span></div></div>
+            <div class="meter"><div class="meter-top"><b>30,000</b><span>tokens / min</span></div></div>
+          </div>
+          <p class="meaning">About <b>one turn every 6 seconds</b>. Don't call the LLM on partial transcripts; wait for <code class="inline-code">&lt;end&gt;</code>.</p>
+        </article>
+        <article class="limit">
+          <div class="limit-head"><h3>STT</h3><span>ck-stt-live</span></div>
+          <div class="meters">
+            <div class="meter"><div class="meter-top"><b>2</b><span>parallel streams</span></div></div>
+            <div class="meter"><div class="meter-top"><b>30</b><span>new streams / min</span></div></div>
+          </div>
+          <p class="meaning"><b>Two live callers at once.</b> Keep one socket open for the whole call instead of reconnecting each turn.</p>
+        </article>
+        <article class="limit">
+          <div class="limit-head"><h3>TTS</h3><span>4 voices</span></div>
+          <div class="meters">
+            <div class="meter"><div class="meter-top"><b>30</b><span>requests / min</span></div></div>
+            <div class="meter"><div class="meter-top"><b>2,500</b><span>characters / min</span></div></div>
+          </div>
+          <p class="meaning">Roughly <b>40 characters a second</b>. Keep replies short; set <code class="inline-code">max_tokens</code> low.</p>
+        </article>
+      </div>
+
+      <div class="errors">
+        <div class="err e429"><span class="codeno">429</span><strong>Over the limit</strong><p>Wait the number of seconds in the <code class="inline-code">Retry-After</code> header, then retry.</p></div>
+        <div class="err e401"><span class="codeno">401</span><strong>Bad key</strong><p>Check for spaces or a missing character. The same key works for all three services.</p></div>
+      </div>
+
+      <div class="tips">
+        <div class="tip"><h3>Call from your backend</h3><p>The endpoints are plain <code class="inline-code">http://</code> and <code class="inline-code">ws://</code>. An HTTPS web page can't open them, and a key in frontend code is public.</p></div>
+        <div class="tip"><h3>One key, one budget</h3><p>Every teammate testing on the same key draws from the same limits. Coordinate before a live demo.</p></div>
+        <div class="tip"><h3>Retry politely</h3><p>On 429, back off for <code class="inline-code">Retry-After</code> seconds. Hammering the endpoint only extends the wait.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= HEALTH ================= -->
+  <section class="section" id="health">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="step">No key needed</div>
+        <h2>Health checks</h2>
+        <p>Run these first if something looks broken. If a service answers here but your call fails, the problem is on your side: key, format or rate limit.</p>
+      </div>
+      <div class="health">
+        <div class="hrow"><div class="svcname"><b>LLM</b><span>port 8815</span></div><code>curl http://45.194.47.180:8815/health</code><button class="copy-mini" data-copy="curl http://45.194.47.180:8815/health">Copy</button></div>
+        <div class="hrow"><div class="svcname"><b>Speech to text</b><span>port 8900</span></div><code>curl http://45.194.47.180:8900/health</code><button class="copy-mini" data-copy="curl http://45.194.47.180:8900/health">Copy</button></div>
+        <div class="hrow"><div class="svcname"><b>Text to speech</b><span>port 8080</span></div><code>curl http://45.194.47.180:8080/health</code><button class="copy-mini" data-copy="curl http://45.194.47.180:8080/health">Copy</button></div>
+      </div>
+      <div class="health-foot">
+        <button class="copy-mini" data-copy="for p in 8815 8900 8080; do echo &quot;:$p $(curl -s -m 5 http://45.194.47.180:$p/health)&quot;; done">Copy all three as one command</button>
+        <span>Checks every service in one go.</span>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>CallKaro AI · Buildathon developer kit</span>
+    <a href="https://app.callkaro.ai/">app.callkaro.ai</a>
+  </div>
+</footer>
+
+<!-- ================= SNIPPETS (raw text; YOUR_KEY is substituted) ================= -->
+<script type="text/plain" data-group="stt" data-label="Python" data-lang="python">
+# pip install websockets
+import asyncio, json, websockets
+
+KEY = "YOUR_KEY"
+URL = "ws://45.194.47.180:8900/transcribe-websocket"
+
+async def send_audio(ws, path):
+    # raw 16 kHz, mono, 16-bit PCM (see the ffmpeg command)
+    with open(path, "rb") as f:
+        while chunk := f.read(640):      # 640 bytes = 20 ms
+            await ws.send(chunk)
+            await asyncio.sleep(0.02)    # keep real-time pace
+
+async def main():
+    async with websockets.connect(URL) as ws:
+        await ws.send(json.dumps({
+            "api_key": KEY,
+            "model": "ck-stt-live",
+            "language_hints": ["en", "hi"],
+        }))
+        asyncio.create_task(send_audio(ws, "call.raw"))
+
+        turn = []
+        async for msg in ws:
+            for tok in json.loads(msg).get("tokens", []):
+                if tok["text"] == "<end>":       # caller stopped talking
+                    print("CALLER:", "".join(turn).strip())
+                    turn = []                    # -> send this turn to the LLM
+                elif tok.get("is_final"):
+                    turn.append(tok["text"])
+
+asyncio.run(main())   # Ctrl+C to stop
+</script>
+<script type="text/plain" data-group="stt" data-label="Node.js" data-lang="javascript">
+// npm i ws
+import WebSocket from "ws";
+import fs from "node:fs";
+
+const KEY = "YOUR_KEY";
+const ws = new WebSocket("ws://45.194.47.180:8900/transcribe-websocket");
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+ws.on("open", async () => {
+  ws.send(JSON.stringify({
+    api_key: KEY,
+    model: "ck-stt-live",
+    language_hints: ["en", "hi"],
+  }));
+  const pcm = fs.readFileSync("call.raw"); // 16 kHz mono s16le
+  for (let i = 0; i < pcm.length; i += 640) {
+    ws.send(pcm.subarray(i, i + 640));     // 20 ms per frame
+    await sleep(20);
+  }
+});
+
+let turn = [];
+ws.on("message", (data) => {
+  for (const tok of JSON.parse(data.toString()).tokens ?? []) {
+    if (tok.text === "<end>") {
+      console.log("CALLER:", turn.join("").trim());
+      turn = [];
+    } else if (tok.is_final) {
+      turn.push(tok.text);
+    }
+  }
+});
+</script>
+
+<script type="text/plain" data-group="llm" data-label="curl" data-lang="bash">
+# One JSON response
+curl -s http://45.194.47.180:8815/llm/v1/chat/completions \
+  -H "Authorization: Bearer YOUR_KEY" \
+  -H "content-type: application/json" \
+  -d '{"model":"arjuna-3.5","stream":false,"max_tokens":100,
+       "messages":[{"role":"user","content":"Mera order kab aayega?"}]}'
+
+# Streaming (the default): -N prints chunks as they arrive
+curl -sN http://45.194.47.180:8815/llm/v1/chat/completions \
+  -H "Authorization: Bearer YOUR_KEY" \
+  -H "content-type: application/json" \
+  -d '{"model":"arjuna-3.5","max_tokens":100,
+       "messages":[{"role":"user","content":"Mera order kab aayega?"}]}'
+</script>
+<script type="text/plain" data-group="llm" data-label="Python" data-lang="python">
+# pip install openai
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="http://45.194.47.180:8815/llm/v1",
+    api_key="YOUR_KEY",
+)
+
+stream = client.chat.completions.create(
+    model="arjuna-3.5",
+    max_tokens=100,
+    stream=True,          # say it explicitly
+    messages=[
+        {"role": "system", "content": "You are a friendly support agent on a phone call. "
+                                      "Reply in the caller's language, in one or two short sentences."},
+        {"role": "user", "content": "Mera order kab aayega?"},
+    ],
+)
+
+for chunk in stream:
+    if chunk.choices and chunk.choices[0].delta.content:
+        print(chunk.choices[0].delta.content, end="", flush=True)
+</script>
+<script type="text/plain" data-group="llm" data-label="Node.js" data-lang="javascript">
+const KEY = "YOUR_KEY";
+const URL = "http://45.194.47.180:8815/llm/v1/chat/completions";
+
+async function ask(messages) {
+  while (true) {
+    const res = await fetch(URL, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${KEY}`, "content-type": "application/json" },
+      body: JSON.stringify({ model: "arjuna-3.5", stream: false, max_tokens: 100, messages }),
+    });
+    if (res.status === 429) {                      // over the limit
+      const wait = Number(res.headers.get("retry-after") ?? 5);
+      await new Promise((r) => setTimeout(r, wait * 1000));
+      continue;
+    }
+    if (res.status === 401) throw new Error("Bad API key");
+    const data = await res.json();
+    return data.choices[0].message.content;
+  }
+}
+
+console.log(await ask([{ role: "user", content: "Mera order kab aayega?" }]));
+</script>
+
+<script type="text/plain" data-group="tts" data-label="Python" data-lang="python">
+# pip install websockets
+import asyncio, json, wave, websockets
+
+KEY = "YOUR_KEY"
+URL = f"ws://45.194.47.180:8080/v1/audio/stream?api_key={KEY}&voice=raju"
+
+async def main():
+    pcm = bytearray()
+    async with websockets.connect(URL) as ws:
+        await ws.send(json.dumps({
+            "text": "Namaste! Aapka order kal shaam tak pahunch jayega.",
+            "context_id": "c1",
+            "flush": True,
+        }))
+        while True:
+            try:
+                msg = await asyncio.wait_for(ws.recv(), timeout=2)
+            except asyncio.TimeoutError:
+                break                      # no audio for 2 s: done
+            if isinstance(msg, bytes):
+                pcm += msg
+
+    with wave.open("reply.wav", "wb") as w:   # 24 kHz mono 16-bit
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(24000)
+        w.writeframes(pcm)
+
+asyncio.run(main())
+</script>
+<script type="text/plain" data-group="tts" data-label="Node.js" data-lang="javascript">
+// npm i ws
+import WebSocket from "ws";
+import fs from "node:fs";
+
+const KEY = "YOUR_KEY";
+const ws = new WebSocket(`ws://45.194.47.180:8080/v1/audio/stream?api_key=${KEY}&voice=raju`);
+
+const chunks = [];
+let idle;
+const finish = () => {
+  ws.close();
+  fs.writeFileSync("reply.wav", wav(Buffer.concat(chunks)));
+};
+
+ws.on("open", () => {
+  ws.send(JSON.stringify({
+    text: "Namaste! Aapka order kal shaam tak pahunch jayega.",
+    context_id: "c1",
+    flush: true,
+  }));
+});
+
+ws.on("message", (data, isBinary) => {
+  if (isBinary) chunks.push(data);
+  clearTimeout(idle);
+  idle = setTimeout(finish, 2000);   // no audio for 2 s: done
+});
+
+// wrap raw 24 kHz mono 16-bit PCM in a WAV header
+function wav(pcm, rate = 24000) {
+  const h = Buffer.alloc(44);
+  h.write("RIFF", 0); h.writeUInt32LE(36 + pcm.length, 4); h.write("WAVE", 8);
+  h.write("fmt ", 12); h.writeUInt32LE(16, 16); h.writeUInt16LE(1, 20); h.writeUInt16LE(1, 22);
+  h.writeUInt32LE(rate, 24); h.writeUInt32LE(rate * 2, 28); h.writeUInt16LE(2, 32); h.writeUInt16LE(16, 34);
+  h.write("data", 36); h.writeUInt32LE(pcm.length, 40);
+  return Buffer.concat([h, pcm]);
+}
+</script>
+
+<script>window.Prism = { manual: true };</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+<script>
+(function () {
+  const PLACEHOLDER = "YOUR_KEY";
+  const footers = {
+    stt: 'Send each finished turn to the LLM. Keep the socket open for the whole call.',
+    llm: 'Over the limit returns <code>429</code> with <code>Retry-After</code>. A bad key returns <code>401</code>.',
+    tts: 'Writes <code>reply.wav</code>. Raw frames are 24 kHz mono 16-bit PCM.',
+  };
+  let key = "";
+  let voice = "raju";
+
+  const groups = {};
+  document.querySelectorAll('script[type="text/plain"][data-group]').forEach((s) => {
+    (groups[s.dataset.group] ||= []).push({
+      label: s.dataset.label,
+      lang: s.dataset.lang,
+      code: s.textContent.replace(/^\s*\n/, "").replace(/\s+$/, "") + "\n",
+    });
+  });
+
+  const mask = (k) => (k.length <= 6 ? "••••••" : k.slice(0, 3) + "••••••" + k.slice(-3));
+  const withVoice = (s) => s.replace(/voice=raju/g, "voice=" + voice);
+  const forCopy = (s) => withVoice(s).split(PLACEHOLDER).join(key || PLACEHOLDER);
+  const forView = (s) => withVoice(s).split(PLACEHOLDER).join(key ? mask(key) : PLACEHOLDER);
+
+  function highlight(el, text, lang) {
+    const P = window.Prism;
+    if (P && P.languages && P.languages[lang]) {
+      try { el.innerHTML = P.highlight(text, P.languages[lang], lang); return; } catch (e) {}
+    }
+    el.textContent = text;
+  }
+
+  function copyText(text, btn, selectEl) {
+    const label = btn.textContent;
+    const done = (msg, ok) => {
+      btn.textContent = msg;
+      btn.classList.toggle("done", ok);
+      setTimeout(() => { btn.textContent = label; btn.classList.remove("done"); }, 1600);
+    };
+    const fallback = () => {
+      if (selectEl) {
+        const r = document.createRange(); r.selectNodeContents(selectEl);
+        const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+      }
+      done("Press ⌘/Ctrl+C", false);
+    };
+    try {
+      navigator.clipboard.writeText(text).then(() => done("Copied", true), fallback);
+    } catch (e) { fallback(); }
+  }
+
+  const panels = [];
+  document.querySelectorAll(".code[data-panel]").forEach((panel) => {
+    const name = panel.dataset.panel;
+    const items = groups[name] || [];
+    const state = { active: 0 };
+
+    const bar = document.createElement("div"); bar.className = "code-bar";
+    const tabs = document.createElement("div"); tabs.className = "tabs"; tabs.setAttribute("role", "tablist");
+    const copyBtn = document.createElement("button"); copyBtn.className = "copy-code"; copyBtn.type = "button"; copyBtn.textContent = "Copy";
+    const pre = document.createElement("pre"); pre.tabIndex = 0;
+    const code = document.createElement("code"); pre.appendChild(code);
+    const foot = document.createElement("div"); foot.className = "code-foot"; foot.innerHTML = footers[name] || "";
+
+    items.forEach((it, i) => {
+      const b = document.createElement("button");
+      b.className = "tab"; b.type = "button"; b.id = "tab-" + name + "-" + i;
+      b.setAttribute("role", "tab"); b.textContent = it.label;
+      b.addEventListener("click", () => { state.active = i; render(); });
+      tabs.appendChild(b);
+    });
+    bar.append(tabs, copyBtn);
+    panel.append(bar, pre, foot);
+
+    function render() {
+      tabs.querySelectorAll(".tab").forEach((t, i) => t.setAttribute("aria-selected", String(i === state.active)));
+      const it = items[state.active];
+      if (!it) return;
+      code.className = "language-" + it.lang;
+      highlight(code, forView(it.code), it.lang);
+    }
+    copyBtn.addEventListener("click", () => {
+      const it = items[state.active];
+      if (it) copyText(forCopy(it.code), copyBtn, code);
+    });
+    panels.push(render);
+    render();
+  });
+
+  // static copy buttons
+  document.querySelectorAll(".copy-mini[data-copy]").forEach((b) => {
+    b.addEventListener("click", () => copyText(b.dataset.copy, b, b.previousElementSibling));
+  });
+
+  // TTS URL
+  const ttsUrl = document.getElementById("tts-url");
+  const ttsRaw = "ws://45.194.47.180:8080/v1/audio/stream?api_key=YOUR_KEY&voice=raju";
+  function renderTtsUrl() { ttsUrl.textContent = forView(ttsRaw); }
+  document.getElementById("tts-url-copy").addEventListener("click", (e) => copyText(forCopy(ttsRaw), e.currentTarget, ttsUrl));
+
+  // voices
+  document.querySelectorAll(".voice").forEach((b) => {
+    b.addEventListener("click", () => {
+      voice = b.dataset.voice;
+      document.querySelectorAll(".voice").forEach((v) => v.setAttribute("aria-pressed", String(v === b)));
+      renderTtsUrl(); panels.forEach((r) => r());
+    });
+  });
+
+  // key
+  const input = document.getElementById("api-key");
+  const stateEl = document.getElementById("key-state");
+  input.addEventListener("input", () => {
+    key = input.value.trim();
+    stateEl.textContent = key ? "applied to snippets" : "not set";
+    stateEl.classList.toggle("on", !!key);
+    renderTtsUrl(); panels.forEach((r) => r());
+  });
+  if (input.value) input.dispatchEvent(new Event("input"));
+  renderTtsUrl();
+})();
+</script>
+
+</body></html>
